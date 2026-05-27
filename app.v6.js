@@ -562,6 +562,8 @@ window.handleLogin = async function(e) {
             btn.disabled = false;
         }
     } catch (err) {
+        console.error("Supabase Auth Error:", err);
+        alert("ERROR: " + err.message + "\n\nPastikan koneksi internet stabil dan matikan ekstensi Adblock/VPN Anda.");
         errDiv.innerHTML = "Kesalahan Sistem: " + err.message + "<br>Pastikan Anda terhubung ke internet dan matikan VPN / Adblocker jika ada.";
         errDiv.style.display = 'block';
         btn.textContent = 'Masuk ke Akun';
@@ -623,6 +625,8 @@ window.handleRegister = async function(e) {
             btn.disabled = false;
         }
     } catch (err) {
+        console.error("Supabase Auth Error:", err);
+        alert("ERROR: " + err.message + "\n\nPastikan koneksi internet stabil dan matikan ekstensi Adblock/VPN Anda.");
         errDiv.innerHTML = "Kesalahan Sistem: " + err.message + "<br>Pastikan Anda terhubung ke internet dan matikan VPN / Adblocker jika ada.";
         errDiv.style.display = 'block';
         btn.textContent = 'Buat Akun Sekarang';
