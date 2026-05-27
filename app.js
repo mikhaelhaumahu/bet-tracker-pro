@@ -471,6 +471,8 @@ let apiMode = "demo";
 let apiProvider = "footballdata";
 let apiToken = "";
 let aiToken = "";
+let userId = "user_default";
+let aiChatHistory = [];
 let fetchedApiMatches = [];
 let hideFinishedMatches = false;
 const API_CACHE_KEY = "bettracker_api_matches_cache_v2.1.0";
@@ -515,17 +517,39 @@ function loadBets() {
     apiProvider = localStorage.getItem("bettracker_api_provider") || "footballdata";
     apiToken = localStorage.getItem("bettracker_api_token") || "";
     aiToken = localStorage.getItem("bettracker_ai_token") || "";
+    userId = localStorage.getItem("bettracker_user_id") || "user_default";
 
     // Set initial toggle state if elements exist
     const apiModeSelect = document.getElementById("api-mode");
     const apiProviderSelect = document.getElementById("api-provider");
     const apiTokenInput = document.getElementById("api-token");
     const aiTokenInput = document.getElementById("ai-token");
+    const userIdInput = document.getElementById("user-id");
     
     if (apiModeSelect) apiModeSelect.value = apiMode;
     if (apiProviderSelect) apiProviderSelect.value = apiProvider;
     if (apiTokenInput) apiTokenInput.value = apiToken;
     if (aiTokenInput) aiTokenInput.value = aiToken;
+    if (userIdInput) userIdInput.value = userId;
+
+    loadAiChatHistory();
+}
+
+function loadAiChatHistory() {
+    try {
+        const saved = localStorage.getItem(`bettracker_ai_chat_${userId}`);
+        if (saved) {
+            aiChatHistory = JSON.parse(saved);
+        } else {
+            aiChatHistory = [];
+        }
+    } catch (e) {
+        aiChatHistory = [];
+    }
+}
+
+function saveAiChatHistory() {
+    localStorage.setItem(`bettracker_ai_chat_${userId}`, JSON.stringify(aiChatHistory));
 }
 
 // Save bets to LocalStorage
@@ -2357,6 +2381,7 @@ function setupEventListeners() {
             const selectedProvider = document.getElementById("api-provider").value;
             const token = document.getElementById("api-token").value.trim();
             const aTkn = document.getElementById("ai-token").value.trim();
+            const uId = document.getElementById("user-id").value.trim() || "user_default";
 
             if (selectedMode === "live" && !token) {
                 showToast("Token API diperlukan untuk mode Live!", "error");
@@ -2367,11 +2392,15 @@ function setupEventListeners() {
             apiProvider = selectedProvider;
             apiToken = token;
             aiToken = aTkn;
+            userId = uId;
 
             localStorage.setItem("bettracker_api_mode", apiMode);
             localStorage.setItem("bettracker_api_provider", apiProvider);
             localStorage.setItem("bettracker_api_token", apiToken);
             localStorage.setItem("bettracker_ai_token", aiToken);
+            localStorage.setItem("bettracker_user_id", userId);
+            
+            loadAiChatHistory(); // reload chat history for this user
             
             document.getElementById("api-settings-modal").classList.remove("open");
             showToast("Pengaturan API disimpan. Memuat ulang data...", "success");
@@ -3279,21 +3308,88 @@ function importDataFromJSON() {
     reader.readAsText(file);
 }
 
-// AI Analysis Logic
-window.analyzeMatchWithAI = async function() {
-    if (!selectedMatch) return;
+// AI Chat & Analysis Logic
+function parseMarkdown(text) {
+    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    html = html.replace(/^- (.*)$/gm, '<li>$1</li>');
+    html = html.replace(/^\* (.*)$/gm, '<li>$1</li>');
+    html = html.replace(/<li>.*<\/li>/s, match => `<ul>${match}</ul>`);
+    html = html.replace(/\n/g, '<br>');
+    return html;
+}
+
+function renderChatMessages() {
+    const container = document.getElementById("ai-chat-messages");
+    if (!container) return;
     
-    if (!aiToken) {
-        showToast("Mohon masukkan Gemini API Key di Pengaturan API terlebih dahulu!", "error");
-        document.getElementById('api-settings-modal').classList.add('open');
+    container.innerHTML = "";
+    
+    if (aiChatHistory.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #9ca3af; margin-top: 2rem;">Belum ada riwayat obrolan. Silakan mulai percakapan!</div>`;
         return;
     }
 
-    const btn = document.getElementById("btn-ai-analysis");
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin" style="width: 18px; height: 18px; margin-right: 0.5rem; display: inline-block; vertical-align: middle; animation: spin 1s linear infinite;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg> Sedang Menganalisis...`;
-    btn.disabled = true;
+    aiChatHistory.forEach(msg => {
+        if (msg.role === 'system') return; // Hide system prompts
+        
+        const div = document.createElement('div');
+        div.className = msg.role === 'user' ? 'user-message' : 'ai-message';
+        div.innerHTML = parseMarkdown(msg.content);
+        container.appendChild(div);
+    });
+    
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
 
+function showTypingIndicator() {
+    const container = document.getElementById("ai-chat-messages");
+    const div = document.createElement('div');
+    div.id = 'typing-indicator-bubble';
+    div.className = 'typing-indicator';
+    div.innerHTML = `<span></span><span></span><span></span>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator-bubble');
+    if (indicator) indicator.remove();
+}
+
+window.sendAiQuickAction = function(text) {
+    const input = document.getElementById("ai-chat-input");
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
+}
+
+document.getElementById('ai-chat-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('ai-chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    input.value = '';
+    
+    // Add user message
+    aiChatHistory.push({ role: 'user', content: text });
+    saveAiChatHistory();
+    renderChatMessages();
+    
+    await fetchAiResponse();
+});
+
+async function fetchAiResponse() {
+    if (!aiToken) {
+        showToast("Gemini API Key hilang!", "error");
+        return;
+    }
+
+    showTypingIndicator();
+    
     try {
         const response = await fetch('/api/ai', {
             method: 'POST',
@@ -3302,7 +3398,7 @@ window.analyzeMatchWithAI = async function() {
                 'X-AI-Token': aiToken
             },
             body: JSON.stringify({
-                match: selectedMatch
+                history: aiChatHistory
             })
         });
 
@@ -3313,14 +3409,50 @@ window.analyzeMatchWithAI = async function() {
 
         const data = await response.json();
         
-        // Tampilkan hasil di modal konfirmasi atau SweetAlert
-        alert("Prediksi AI:\n\n" + data.analysis);
+        aiChatHistory.push({ role: 'model', content: data.analysis });
+        saveAiChatHistory();
 
     } catch (error) {
         console.error("AI Error:", error);
-        showToast("Gagal menganalisis: " + error.message, "error");
+        aiChatHistory.push({ role: 'model', content: "**ERROR:** " + error.message });
     } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        removeTypingIndicator();
+        renderChatMessages();
     }
+}
+
+window.analyzeMatchWithAI = async function() {
+    if (!selectedMatch) return;
+    
+    if (!aiToken) {
+        showToast("Mohon masukkan Gemini API Key di Pengaturan API terlebih dahulu!", "error");
+        document.getElementById('api-settings-modal').classList.add('open');
+        return;
+    }
+
+    // Open Chat Modal
+    document.getElementById('detail-drawer').classList.remove('open');
+    document.getElementById('ai-chat-modal').classList.add('open');
+    
+    // Create Initial System Prompt if we are analyzing a new match
+    const systemPromptText = `Bertindaklah sebagai Asisten Taruhan Profesional dan Penasihat Keuangan. 
+Tugasmu adalah menganalisis pertandingan, merekomendasikan taruhan terbaik (termasuk alternatif jika diminta), dan menyarankan nominal taruhan berdasarkan saldo pengguna (gunakan manajemen bankroll yang ketat, misal 1-5% dari saldo). Jawab dengan singkat, padat, berwibawa, dan gunakan bahasa Indonesia.
+
+Konteks Pertandingan Saat Ini:
+${selectedMatch.homeTeam} VS ${selectedMatch.awayTeam}
+Liga: ${selectedMatch.league}
+Waktu: ${selectedMatch.time}`;
+
+    // Add to history as system instruction (hidden from UI)
+    // To make it feel fresh, we can clear history when analyzing a totally new match?
+    // Or we just append it so AI knows the CURRENT context.
+    aiChatHistory.push({ role: 'system', content: systemPromptText });
+    
+    // Auto trigger an AI greeting for this match
+    aiChatHistory.push({ role: 'user', content: `Tolong berikan analisis awal dan prediksi untuk pertandingan ${selectedMatch.homeTeam} vs ${selectedMatch.awayTeam}.` });
+    
+    saveAiChatHistory();
+    renderChatMessages();
+    
+    await fetchAiResponse();
 }

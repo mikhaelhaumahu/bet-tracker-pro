@@ -16,22 +16,38 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'X-AI-Token header is required' });
     }
 
-    const { match } = req.body;
-    if (!match) {
-        return res.status(400).json({ error: 'Match data is required' });
+    const { history } = req.body;
+    if (!history || !Array.isArray(history)) {
+        return res.status(400).json({ error: 'Chat history is required' });
     }
 
     // Call Google Gemini API
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${aiToken}`;
 
-    const prompt = `Bertindaklah sebagai pakar analis sepak bola dan taruhan profesional.
-Analisis pertandingan ini dan berikan prediksi pemenangnya, potensi jumlah gol, dan rekomendasi taruhan terbaik.
+    // Extract system instructions and format history
+    let systemText = "";
+    const contents = [];
 
-Pertandingan: ${match.homeTeam} VS ${match.awayTeam}
-Liga: ${match.league}
-Waktu: ${match.time}
+    history.forEach(msg => {
+        if (msg.role === 'system') {
+            systemText += msg.content + "\n";
+        } else {
+            contents.push({
+                role: msg.role === 'model' ? 'model' : 'user', // Ensure strict roles
+                parts: [{ text: msg.content }]
+            });
+        }
+    });
 
-Berikan jawaban singkat, padat, berwibawa, dan langsung ke intinya (maksimal 3 paragraf).`;
+    const payload = {
+        contents: contents
+    };
+
+    if (systemText) {
+        payload.systemInstruction = {
+            parts: [{ text: systemText }]
+        };
+    }
 
     try {
         const response = await fetch(geminiUrl, {
@@ -39,11 +55,7 @@ Berikan jawaban singkat, padat, berwibawa, dan langsung ke intinya (maksimal 3 p
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: prompt }]
-                }]
-            })
+            body: JSON.stringify(payload)
         });
         
         const data = await response.json();
