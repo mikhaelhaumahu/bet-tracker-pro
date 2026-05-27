@@ -472,6 +472,7 @@ let apiProvider = "football-data";
 let apiToken = "";
 let aiToken = "";
 let fetchedApiMatches = [];
+let hideFinishedMatches = false;
 
 // Date Filter State
 const todayObj = new Date();
