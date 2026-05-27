@@ -493,14 +493,10 @@ async function initApp() {
     
     // Attach auth listeners immediately to prevent race conditions
     const loginForm = document.getElementById('auth-login-form');
-    const step1Form = document.getElementById('reg-step-1');
-    const step2Form = document.getElementById('reg-step-2');
-    const step3Form = document.getElementById('reg-step-3');
+    const registerForm = document.getElementById('auth-register-form');
     
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
-    if (step1Form) step1Form.addEventListener('submit', handleRegStep1);
-    if (step2Form) step2Form.addEventListener('submit', handleRegStep2);
-    if (step3Form) step3Form.addEventListener('submit', handleRegStep3);
+    if (registerForm) registerForm.addEventListener('submit', handleRegister);
     
     // Check Supabase session
     const { data: { session } } = await supabase.auth.getSession();
@@ -514,165 +510,123 @@ async function initApp() {
     }
 }
 
-let regEmail = '';
-let regSession = null;
-
 window.switchAuthTab = function(tab) {
     const loginForm = document.getElementById('auth-login-form');
-    const regContainer = document.getElementById('auth-register-container');
+    const regForm = document.getElementById('auth-register-form');
     const tabLogin = document.getElementById('tab-login');
     const tabReg = document.getElementById('tab-register');
 
     if (tab === 'login') {
         loginForm.style.display = 'flex';
-        regContainer.style.display = 'none';
+        regForm.style.display = 'none';
         tabLogin.style.color = 'var(--primary)';
         tabLogin.style.borderBottomColor = 'var(--primary)';
         tabReg.style.color = 'var(--text-muted)';
         tabReg.style.borderBottomColor = 'transparent';
     } else {
         loginForm.style.display = 'none';
-        regContainer.style.display = 'flex';
+        regForm.style.display = 'flex';
         tabReg.style.color = 'var(--primary)';
         tabReg.style.borderBottomColor = 'var(--primary)';
         tabLogin.style.color = 'var(--text-muted)';
         tabLogin.style.borderBottomColor = 'transparent';
-        
-        // Reset register flow to step 1
-        document.getElementById('reg-step-1').style.display = 'flex';
-        document.getElementById('reg-step-2').style.display = 'none';
-        document.getElementById('reg-step-3').style.display = 'none';
     }
 }
 
 window.handleLogin = async function(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value;
+    const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     const errDiv = document.getElementById('login-error');
     errDiv.style.display = 'none';
-    
+
+    if (!username || !password) return;
+
+    const email = username.toLowerCase() + '@app.local';
     const btn = document.getElementById('btn-login');
     btn.textContent = 'Memuat...';
     btn.disabled = true;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-        if (error.message.includes('Email not confirmed')) {
-            errDiv.textContent = 'Email Anda belum diverifikasi! Silakan cek Inbox / Folder Spam email Anda untuk mengklik tautan verifikasi.';
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+            errDiv.textContent = "Username atau sandi salah.";
+            errDiv.style.display = 'block';
+            btn.textContent = 'Masuk ke Akun';
+            btn.disabled = false;
         } else {
-            errDiv.textContent = error.message;
+            currentUser = data.user;
+            await onLoginSuccess();
+            btn.textContent = 'Masuk ke Akun';
+            btn.disabled = false;
         }
+    } catch (err) {
+        errDiv.textContent = "Terjadi kesalahan jaringan. Coba lagi.";
         errDiv.style.display = 'block';
         btn.textContent = 'Masuk ke Akun';
         btn.disabled = false;
-    } else {
-        currentUser = data.user;
-        await onLoginSuccess();
     }
 }
 
-window.handleRegStep1 = async function(e) {
+window.handleRegister = async function(e) {
     e.preventDefault();
-    const email = document.getElementById('reg-email').value.trim();
-    const errDiv = document.getElementById('reg-err-1');
+    const username = document.getElementById('reg-username').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const errDiv = document.getElementById('reg-error');
+    
     errDiv.style.display = 'none';
     
-    if (!email) {
-        errDiv.textContent = 'Masukkan email valid.';
+    // Validasi username
+    if (!/^[a-zA-Z0-9_]{3,}$/.test(username)) {
+        errDiv.textContent = 'Username minimal 3 karakter (hanya huruf, angka, underscore).';
         errDiv.style.display = 'block';
         return;
     }
-
-    const btn = document.getElementById('btn-reg-step1');
-    btn.textContent = 'Mengirim...';
-    btn.disabled = true;
-
-    // Send OTP / Magic Link
-    const { data, error } = await supabase.auth.signInWithOtp({ email });
     
-    if (error) {
-        errDiv.textContent = error.message + " (Coba matikan 'Confirm Email' di pengaturan Supabase jika terus gagal)";
-        errDiv.style.display = 'block';
-        btn.textContent = 'Kirim Kode Verifikasi OTP';
-        btn.disabled = false;
-    } else {
-        regEmail = email;
-        document.getElementById('reg-step-1').style.display = 'none';
-        document.getElementById('reg-step-2').style.display = 'flex';
-        btn.textContent = 'Kirim Kode Verifikasi OTP';
-        btn.disabled = false;
-    }
-}
-
-window.handleRegStep2 = async function(e) {
-    e.preventDefault();
-    const token = document.getElementById('reg-otp').value.trim();
-    const errDiv = document.getElementById('reg-err-2');
-    errDiv.style.display = 'none';
-
-    if (!token) return;
-
-    const btn = document.getElementById('btn-reg-step2');
-    btn.textContent = 'Memverifikasi...';
-    btn.disabled = true;
-
-    // Verify OTP
-    const { data: { session }, error } = await supabase.auth.verifyOtp({
-        email: regEmail,
-        token: token,
-        type: 'email'
-    });
-
-    if (error) {
-        // Fallback for Magic Links if OTP verify fails (user might have clicked magic link instead of entering pin)
-        // If they click the magic link, they get logged in on another tab. We can't easily catch that here without polling,
-        // so we just show the error.
-        errDiv.textContent = error.message + " (Jika Anda mendapat Link, silakan KLIK link tersebut di email Anda)";
-        errDiv.style.display = 'block';
-        btn.textContent = 'Verifikasi Kode OTP';
-        btn.disabled = false;
-    } else if (session) {
-        regSession = session;
-        document.getElementById('reg-step-2').style.display = 'none';
-        document.getElementById('reg-step-3').style.display = 'flex';
-        btn.textContent = 'Verifikasi Kode OTP';
-        btn.disabled = false;
-    }
-}
-
-window.handleRegStep3 = async function(e) {
-    e.preventDefault();
-    const password = document.getElementById('reg-password').value;
-    const errDiv = document.getElementById('reg-err-3');
-    errDiv.style.display = 'none';
-
     if (password.length < 6) {
         errDiv.textContent = 'Password minimal 6 karakter.';
         errDiv.style.display = 'block';
         return;
     }
 
-    const btn = document.getElementById('btn-reg-step3');
-    btn.textContent = 'Menyimpan...';
+    const email = username.toLowerCase() + '@app.local';
+    const btn = document.getElementById('btn-register');
+    btn.textContent = 'Membuat Akun...';
     btn.disabled = true;
 
-    // Update password
-    const { data, error } = await supabase.auth.updateUser({ password });
+    try {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        
+        if (error) {
+            errDiv.textContent = error.message;
+            errDiv.style.display = 'block';
+            btn.textContent = 'Buat Akun Sekarang';
+            btn.disabled = false;
+        } else {
+            // Check if "Confirm Email" is required in Supabase settings
+            if (data.user && !data.session) {
+                errDiv.innerHTML = '<strong>❌ ERROR SUPABASE:</strong><br>Pembuatan akun gagal karena fitur <strong>"Confirm email"</strong> di Supabase Anda MASIH MENYALA!<br><br><strong>CARA MEMPERBAIKI:</strong><br>1. Buka Supabase Dashboard Anda<br>2. Pilih menu "Authentication"<br>3. Pilih "Providers" -> "Email"<br>4. Matikan sakelar "Confirm email" dan SAVE.<br>5. Refresh aplikasi ini dan coba daftar lagi!';
+                errDiv.style.display = 'block';
+                btn.textContent = 'Buat Akun Sekarang';
+                btn.disabled = false;
+                return;
+            }
 
-    if (error) {
-        errDiv.textContent = error.message;
-        errDiv.style.display = 'block';
-        btn.textContent = 'Selesaikan & Buat Akun';
-        btn.disabled = false;
-    } else {
-        // Successfully set password, now create profile if doesn't exist
-        if (data.user) {
-            await supabase.from('user_profiles').insert([{ id: data.user.id }]);
-            currentUser = data.user;
-            await onLoginSuccess();
+            // Successfully logged in automatically
+            if (data.user) {
+                await supabase.from('user_profiles').insert([{ id: data.user.id }]);
+                currentUser = data.user;
+                await onLoginSuccess();
+            }
+            btn.textContent = 'Buat Akun Sekarang';
+            btn.disabled = false;
         }
+    } catch (err) {
+        errDiv.textContent = "Terjadi kesalahan jaringan saat mencoba mendaftar.";
+        errDiv.style.display = 'block';
+        btn.textContent = 'Buat Akun Sekarang';
+        btn.disabled = false;
     }
 }
 
