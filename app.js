@@ -501,32 +501,42 @@ async function initApp() {
         document.getElementById('auth-modal').style.display = 'flex';
         document.getElementById('main-app').style.display = 'none';
         
-        // Listen for auth form
+        // Listen for auth forms
         document.getElementById('auth-login-form').addEventListener('submit', handleLogin);
-        document.getElementById('auth-register-form').addEventListener('submit', handleRegister);
+        document.getElementById('reg-step-1').addEventListener('submit', handleRegStep1);
+        document.getElementById('reg-step-2').addEventListener('submit', handleRegStep2);
+        document.getElementById('reg-step-3').addEventListener('submit', handleRegStep3);
     }
 }
 
+let regEmail = '';
+let regSession = null;
+
 window.switchAuthTab = function(tab) {
     const loginForm = document.getElementById('auth-login-form');
-    const regForm = document.getElementById('auth-register-form');
+    const regContainer = document.getElementById('auth-register-container');
     const tabLogin = document.getElementById('tab-login');
     const tabReg = document.getElementById('tab-register');
 
     if (tab === 'login') {
         loginForm.style.display = 'flex';
-        regForm.style.display = 'none';
+        regContainer.style.display = 'none';
         tabLogin.style.color = 'var(--primary)';
         tabLogin.style.borderBottomColor = 'var(--primary)';
         tabReg.style.color = 'var(--text-muted)';
         tabReg.style.borderBottomColor = 'transparent';
     } else {
         loginForm.style.display = 'none';
-        regForm.style.display = 'flex';
+        regContainer.style.display = 'flex';
         tabReg.style.color = 'var(--primary)';
         tabReg.style.borderBottomColor = 'var(--primary)';
         tabLogin.style.color = 'var(--text-muted)';
         tabLogin.style.borderBottomColor = 'transparent';
+        
+        // Reset register flow to step 1
+        document.getElementById('reg-step-1').style.display = 'flex';
+        document.getElementById('reg-step-2').style.display = 'none';
+        document.getElementById('reg-step-3').style.display = 'none';
     }
 }
 
@@ -558,53 +568,106 @@ async function handleLogin(e) {
     }
 }
 
-window.handleRegister = async function(e) {
+async function handleRegStep1(e) {
     e.preventDefault();
-    const email = document.getElementById('reg-email').value;
-    const password = document.getElementById('reg-password').value;
-    const errDiv = document.getElementById('reg-error');
-    const succDiv = document.getElementById('reg-success');
-    
+    const email = document.getElementById('reg-email').value.trim();
+    const errDiv = document.getElementById('reg-err-1');
     errDiv.style.display = 'none';
-    succDiv.style.display = 'none';
     
-    if (!email || password.length < 6) {
-        errDiv.textContent = 'Masukkan email valid dan password min 6 karakter.';
+    if (!email) {
+        errDiv.textContent = 'Masukkan email valid.';
         errDiv.style.display = 'block';
         return;
     }
 
-    const btn = document.getElementById('btn-register');
-    btn.textContent = 'Memuat...';
+    const btn = document.getElementById('btn-reg-step1');
+    btn.textContent = 'Mengirim...';
     btn.disabled = true;
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Send OTP / Magic Link
+    const { data, error } = await supabase.auth.signInWithOtp({ email });
     
+    if (error) {
+        errDiv.textContent = error.message + " (Coba matikan 'Confirm Email' di pengaturan Supabase jika terus gagal)";
+        errDiv.style.display = 'block';
+        btn.textContent = 'Kirim Kode Verifikasi OTP';
+        btn.disabled = false;
+    } else {
+        regEmail = email;
+        document.getElementById('reg-step-1').style.display = 'none';
+        document.getElementById('reg-step-2').style.display = 'flex';
+        btn.textContent = 'Kirim Kode Verifikasi OTP';
+        btn.disabled = false;
+    }
+}
+
+async function handleRegStep2(e) {
+    e.preventDefault();
+    const token = document.getElementById('reg-otp').value.trim();
+    const errDiv = document.getElementById('reg-err-2');
+    errDiv.style.display = 'none';
+
+    if (!token) return;
+
+    const btn = document.getElementById('btn-reg-step2');
+    btn.textContent = 'Memverifikasi...';
+    btn.disabled = true;
+
+    // Verify OTP
+    const { data: { session }, error } = await supabase.auth.verifyOtp({
+        email: regEmail,
+        token: token,
+        type: 'email'
+    });
+
+    if (error) {
+        // Fallback for Magic Links if OTP verify fails (user might have clicked magic link instead of entering pin)
+        // If they click the magic link, they get logged in on another tab. We can't easily catch that here without polling,
+        // so we just show the error.
+        errDiv.textContent = error.message + " (Jika Anda mendapat Link, silakan KLIK link tersebut di email Anda)";
+        errDiv.style.display = 'block';
+        btn.textContent = 'Verifikasi Kode OTP';
+        btn.disabled = false;
+    } else if (session) {
+        regSession = session;
+        document.getElementById('reg-step-2').style.display = 'none';
+        document.getElementById('reg-step-3').style.display = 'flex';
+        btn.textContent = 'Verifikasi Kode OTP';
+        btn.disabled = false;
+    }
+}
+
+async function handleRegStep3(e) {
+    e.preventDefault();
+    const password = document.getElementById('reg-password').value;
+    const errDiv = document.getElementById('reg-err-3');
+    errDiv.style.display = 'none';
+
+    if (password.length < 6) {
+        errDiv.textContent = 'Password minimal 6 karakter.';
+        errDiv.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('btn-reg-step3');
+    btn.textContent = 'Menyimpan...';
+    btn.disabled = true;
+
+    // Update password
+    const { data, error } = await supabase.auth.updateUser({ password });
+
     if (error) {
         errDiv.textContent = error.message;
         errDiv.style.display = 'block';
-        btn.textContent = 'Buat Akun Sekarang';
+        btn.textContent = 'Selesaikan & Buat Akun';
         btn.disabled = false;
     } else {
-        // Automatically create profile if session exists
+        // Successfully set password, now create profile if doesn't exist
         if (data.user) {
             await supabase.from('user_profiles').insert([{ id: data.user.id }]);
-        }
-        
-        // Supabase sends a confirmation email by default if not disabled
-        if (data.user && !data.session) {
-            succDiv.innerHTML = '<strong>Pendaftaran Berhasil!</strong><br>Silakan cek Inbox atau folder Spam di email Anda untuk mengklik tautan verifikasi. Setelah itu, Anda bisa login.';
-            succDiv.style.display = 'block';
-            document.getElementById('reg-email').value = '';
-            document.getElementById('reg-password').value = '';
-        } else {
-            // Auto login if confirm email is disabled in Supabase
             currentUser = data.user;
             await onLoginSuccess();
         }
-        
-        btn.textContent = 'Buat Akun Sekarang';
-        btn.disabled = false;
     }
 }
 
