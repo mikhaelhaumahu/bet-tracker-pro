@@ -775,6 +775,9 @@ document.addEventListener("DOMContentLoaded", () => {
         updateDashboardStats();
         setupEventListeners();
         
+        // Inisialisasi Auth & Session
+        initApp();
+        
         console.log("Inisialisasi BetTracker Pro berhasil!");
     } catch (error) {
         console.error("Terjadi error saat inisialisasi aplikasi:", error);
