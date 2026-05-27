@@ -603,7 +603,11 @@ window.handleRegister = async function(e) {
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
         
         if (error) {
-            errDiv.textContent = error.message;
+            if (error.message.toLowerCase().includes('rate limit')) {
+                errDiv.innerHTML = '<strong>Akses Sementara Diblokir (Spam Filter)</strong><br>Karena terlalu banyak percobaan sebelumnya, sistem keamanan memblokir jaringan Anda sementara.<br><br><strong>Solusi:</strong><br>1. Matikan WiFi Anda dan gunakan Kuota HP (atau sebaliknya).<br>2. Atau tunggu 15 menit.<br>3. Lalu coba pencet tombol ini lagi.';
+            } else {
+                errDiv.textContent = error.message;
+            }
             errDiv.style.display = 'block';
             btn.textContent = 'Buat Akun Sekarang';
             btn.disabled = false;
@@ -619,9 +623,19 @@ window.handleRegister = async function(e) {
 
             // Successfully logged in automatically
             if (data.user) {
+                // Create user profile immediately
                 await supabaseClient.from('user_profiles').insert([{ id: data.user.id }]);
                 currentUser = data.user;
-                await onLoginSuccess();
+                
+                // Tampilkan pesan sukses
+                btn.textContent = 'Sukses! Mengalihkan...';
+                btn.style.backgroundColor = '#10b981'; // Warna hijau sukses
+                btn.style.color = '#ffffff';
+                errDiv.style.display = 'none';
+                
+                setTimeout(async () => {
+                    await onLoginSuccess();
+                }, 1500);
             }
             btn.textContent = 'Buat Akun Sekarang';
             btn.disabled = false;
