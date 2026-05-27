@@ -1,10 +1,10 @@
 // Supabase Initialization
 const SUPABASE_URL = 'https://qnzlczrdjuxutxhvpawq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4XwZpI77XwBQa_TX8JYs4w_ZlUlh3Rp';
-let supabase = null;
+let supabaseClient = null;
 try {
     if (window.supabase) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     } else {
         console.error("Supabase SDK tidak dimuat (window.supabase undefined). Mungkin diblokir Adblocker/ISP.");
     }
@@ -515,7 +515,7 @@ async function initApp() {
     if (registerForm) registerForm.addEventListener('submit', handleRegister);
     
     // Check Supabase session
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         currentUser = session.user;
         await onLoginSuccess();
@@ -543,7 +543,7 @@ window.handleLogin = async function(e) {
     btn.disabled = true;
 
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         
         if (error) {
             errDiv.textContent = "Username atau sandi salah.";
@@ -593,7 +593,7 @@ window.handleRegister = async function(e) {
     btn.disabled = true;
 
     try {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
         
         if (error) {
             errDiv.textContent = error.message;
@@ -612,7 +612,7 @@ window.handleRegister = async function(e) {
 
             // Successfully logged in automatically
             if (data.user) {
-                await supabase.from('user_profiles').insert([{ id: data.user.id }]);
+                await supabaseClient.from('user_profiles').insert([{ id: data.user.id }]);
                 currentUser = data.user;
                 await onLoginSuccess();
             }
@@ -630,14 +630,14 @@ window.handleRegister = async function(e) {
 }
 
 window.handleLogout = async function() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     location.reload();
 }
 
 async function loadDataFromSupabase() {
     if (!currentUser) return;
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('user_profiles')
             .select('*')
             .eq('id', currentUser.id)
@@ -660,7 +660,7 @@ async function loadDataFromSupabase() {
             hideFinishedMatches = localStorage.getItem("bettracker_hide_finished") === "true";
         } else {
             // First time login, insert default row
-            await supabase.from('user_profiles').insert([{ id: currentUser.id }]);
+            await supabaseClient.from('user_profiles').insert([{ id: currentUser.id }]);
         }
     } catch (e) {
         console.error("Load error:", e);
@@ -670,7 +670,7 @@ async function loadDataFromSupabase() {
 async function saveToSupabase(fieldsToUpdate) {
     if (!currentUser) return;
     try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('user_profiles')
             .update(fieldsToUpdate)
             .eq('id', currentUser.id);
