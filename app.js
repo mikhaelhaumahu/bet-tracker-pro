@@ -526,28 +526,7 @@ async function initApp() {
     }
 }
 
-window.switchAuthTab = function(tab) {
-    const loginForm = document.getElementById('auth-login-form');
-    const regForm = document.getElementById('auth-register-form');
-    const tabLogin = document.getElementById('tab-login');
-    const tabReg = document.getElementById('tab-register');
-
-    if (tab === 'login') {
-        loginForm.style.display = 'flex';
-        regForm.style.display = 'none';
-        tabLogin.style.color = 'var(--primary)';
-        tabLogin.style.borderBottomColor = 'var(--primary)';
-        tabReg.style.color = 'var(--text-muted)';
-        tabReg.style.borderBottomColor = 'transparent';
-    } else {
-        loginForm.style.display = 'none';
-        regForm.style.display = 'flex';
-        tabReg.style.color = 'var(--primary)';
-        tabReg.style.borderBottomColor = 'var(--primary)';
-        tabLogin.style.color = 'var(--text-muted)';
-        tabLogin.style.borderBottomColor = 'transparent';
-    }
-}
+// Auth tab switching logic is now embedded directly in index.html to prevent load failures
 
 window.handleLogin = async function(e) {
     e.preventDefault();
@@ -1787,13 +1766,13 @@ function translateApiMatches(apiMatches) {
         const isPast = hoursSinceStart > 3;
 
         if (m.status === "IN_PLAY" || m.status === "LIVE") {
-            timeText = `LIVE: ${m.score.fullTime.home ?? 0} - ${m.score.fullTime.away ?? 0}`;
+            timeText = `LIVE: ${m.score.fullTime.home || 0} - ${m.score.fullTime.away || 0}`;
             statusText = "LIVE";
         } else if (m.status === "PAUSED") {
-            timeText = `HT: ${m.score.fullTime.home ?? 0} - ${m.score.fullTime.away ?? 0}`;
+            timeText = `HT: ${m.score.fullTime.home || 0} - ${m.score.fullTime.away || 0}`;
             statusText = "HT";
         } else if (m.status === "FINISHED") {
-            timeText = `Selesai: ${m.score.fullTime.home ?? 0} - ${m.score.fullTime.away ?? 0}`;
+            timeText = `Selesai: ${m.score.fullTime.home || 0} - ${m.score.fullTime.away || 0}`;
             statusText = "Selesai";
         } else if (m.status === "POSTPONED") {
             timeText = `Ditunda`;
@@ -1811,7 +1790,9 @@ function translateApiMatches(apiMatches) {
             timeText = `Selesai (Awarded)`;
             statusText = "Selesai";
         } else if (isPast && !isLive) {
-            timeText = `Selesai: ${m.score?.fullTime?.home ?? 0} - ${m.score?.fullTime?.away ?? 0}`;
+            let homeScore = (m.score && m.score.fullTime && m.score.fullTime.home) ? m.score.fullTime.home : 0;
+            let awayScore = (m.score && m.score.fullTime && m.score.fullTime.away) ? m.score.fullTime.away : 0;
+            timeText = `Selesai: ${homeScore} - ${awayScore}`;
             statusText = "Selesai";
         }
 
@@ -3517,7 +3498,9 @@ window.sendAiQuickAction = function(text) {
     }
 }
 
-document.getElementById('ai-chat-form')?.addEventListener('submit', async (e) => {
+const aiChatForm = document.getElementById('ai-chat-form');
+if (aiChatForm) {
+    aiChatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('ai-chat-input');
     const text = input.value.trim();
@@ -3532,6 +3515,7 @@ document.getElementById('ai-chat-form')?.addEventListener('submit', async (e) =>
     
     await fetchAiResponse();
 });
+}
 
 async function fetchAiResponse() {
     if (!aiToken) {
