@@ -14,77 +14,10 @@
     <link rel="stylesheet" href="style.css?v=2.0.0">
 </head>
 <body>
-    <!-- Auth Modal (Overlay to force login) -->
-    <div id="auth-modal" class="modal-overlay open" style="z-index: 10000; background: #0f172a; backdrop-filter: blur(10px);">
-        <div class="modal-container" style="max-width: 400px; padding: 2rem;">
-            <div style="text-align: center; margin-bottom: 1.5rem;">
-                <h1 style="color: var(--primary); font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem;">BetTracker Pro</h1>
-                <p style="color: var(--text-muted); font-size: 0.95rem;">Sistem Sinkronisasi Cloud</p>
-            </div>
-            
-            <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                <button id="tab-login" onclick="switchAuthTab('login')" style="flex: 1; padding: 0.75rem; background: transparent; border: none; color: var(--primary); font-weight: 600; border-bottom: 2px solid var(--primary); cursor: pointer;">Masuk</button>
-                <button id="tab-register" onclick="switchAuthTab('register')" style="flex: 1; padding: 0.75rem; background: transparent; border: none; color: var(--text-muted); font-weight: 600; border-bottom: 2px solid transparent; cursor: pointer;">Daftar Baru</button>
-            </div>
-            
-            <script>
-            function switchAuthTab(tab) {
-                const loginForm = document.getElementById('auth-login-form');
-                const regForm = document.getElementById('auth-register-form');
-                const tabLogin = document.getElementById('tab-login');
-                const tabReg = document.getElementById('tab-register');
-            
-                if (tab === 'login') {
-                    loginForm.style.display = 'flex';
-                    regForm.style.display = 'none';
-                    tabLogin.style.color = 'var(--primary)';
-                    tabLogin.style.borderBottomColor = 'var(--primary)';
-                    tabReg.style.color = 'var(--text-muted)';
-                    tabReg.style.borderBottomColor = 'transparent';
-                } else {
-                    loginForm.style.display = 'none';
-                    regForm.style.display = 'flex';
-                    tabReg.style.color = 'var(--primary)';
-                    tabReg.style.borderBottomColor = 'var(--primary)';
-                    tabLogin.style.color = 'var(--text-muted)';
-                    tabLogin.style.borderBottomColor = 'transparent';
-                }
-            }
-            </script>
-            
-            <!-- Form Login -->
-            <form id="auth-login-form" class="bet-form" style="display: flex; flex-direction: column; gap: 1rem;" onsubmit="handleLogin(event); return false;">
-                <div class="form-group">
-                    <label for="login-username">Username</label>
-                    <input type="text" id="login-username" class="input-field" placeholder="Masukkan username Anda" required style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: var(--radius-md); font-size: 1rem; color: #f3f4f6;">
-                </div>
-                <div class="form-group">
-                    <label for="login-password">Kata Sandi</label>
-                    <input type="password" id="login-password" class="input-field" placeholder="Minimal 6 karakter" required style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: var(--radius-md); font-size: 1rem; color: #f3f4f6;">
-                </div>
-                <button type="submit" id="btn-login" class="btn btn-primary" style="margin-top: 0.5rem; padding: 0.85rem; font-size: 1rem; border-radius: var(--radius-md);">Masuk ke Akun</button>
-                <div id="login-error" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.5rem; display: none;"></div>
-            </form>
+    <!-- Sistem Login DIHAPUS TOTAL - Langsung masuk ke aplikasi -->
 
-            <!-- Form Register -->
-            <form id="auth-register-form" class="bet-form" style="display: none; flex-direction: column; gap: 1rem;" onsubmit="handleRegister(event); return false;">
-                <p style="font-size: 0.85rem; color: #9ca3af; text-align: center; line-height: 1.4;">Daftarkan username Anda untuk membuat Database Taruhan Pribadi. Tidak butuh verifikasi email!</p>
-                <div class="form-group">
-                    <label for="reg-username">Username Baru</label>
-                    <input type="text" id="reg-username" class="input-field" placeholder="Contoh: bosku123" required style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: var(--radius-md); font-size: 1rem; color: #f3f4f6;">
-                </div>
-                <div class="form-group">
-                    <label for="reg-password">Kata Sandi Baru</label>
-                    <input type="password" id="reg-password" class="input-field" placeholder="Minimal 6 karakter" required style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: var(--radius-md); font-size: 1rem; color: #f3f4f6;">
-                </div>
-                <button type="submit" id="btn-register" class="btn btn-secondary" style="margin-top: 0.5rem; padding: 0.85rem; font-size: 1rem; border-radius: var(--radius-md);">Buat Akun Sekarang</button>
-                <div id="reg-error" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.5rem; display: none;"></div>
-            </form>
-        </div>
-    </div>
-
-    <!-- App Container -->
-    <div class="app-container" id="main-app" style="display: none;">
+    <!-- App Container (langsung tampil tanpa login) -->
+    <div class="app-container" id="main-app" style="display: flex;">
         
         <!-- Sidebar / Navigation -->
         <header class="app-header">
@@ -118,13 +51,6 @@
                     <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="4"></circle>
                         <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-                </button>
-                <button id="logout-btn" class="icon-btn" onclick="handleLogout()" aria-label="Keluar (Logout)" style="color: #ef4444; display: none;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                        <polyline points="16 17 21 12 16 7"></polyline>
-                        <line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
                 </button>
             </div>
         </header>
@@ -694,6 +620,6 @@
     </div>
 
     <!-- App Logic -->
-    <script src="app.js?v=11.1.0"></script>
+    <script src="app.js?v=12.0.0"></script>
 </body>
 </html>
