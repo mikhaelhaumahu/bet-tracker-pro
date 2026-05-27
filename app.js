@@ -615,10 +615,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         console.log("DOM selesai dimuat. Memuat data...");
         
-        // Panggil initApp pertama kali untuk menyembunyikan modal login dan me-load data lokal!
-        await initApp();
+        // Inisialisasi aplikasi dan load data lokal
+        initApp();
         
-        // Load match data (API Live or Local Offline) setelah local data di-load
+        // Load match data (API Live or Local Offline)
         loadMatchData();
         
         console.log("Inisialisasi BetTracker Pro berhasil!");
