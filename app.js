@@ -562,7 +562,7 @@ window.handleLogin = async function(e) {
             btn.disabled = false;
         }
     } catch (err) {
-        errDiv.textContent = "Terjadi kesalahan jaringan. Coba lagi.";
+        errDiv.innerHTML = "Kesalahan Sistem: " + err.message + "<br>Pastikan Anda terhubung ke internet dan matikan VPN / Adblocker jika ada.";
         errDiv.style.display = 'block';
         btn.textContent = 'Masuk ke Akun';
         btn.disabled = false;
@@ -623,7 +623,7 @@ window.handleRegister = async function(e) {
             btn.disabled = false;
         }
     } catch (err) {
-        errDiv.textContent = "Terjadi kesalahan jaringan saat mencoba mendaftar.";
+        errDiv.innerHTML = "Kesalahan Sistem: " + err.message + "<br>Pastikan Anda terhubung ke internet dan matikan VPN / Adblocker jika ada.";
         errDiv.style.display = 'block';
         btn.textContent = 'Buat Akun Sekarang';
         btn.disabled = false;
