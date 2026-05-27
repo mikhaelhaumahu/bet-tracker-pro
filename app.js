@@ -491,6 +491,17 @@ async function initApp() {
     setupEventListeners();
     setupTheme();
     
+    // Attach auth listeners immediately to prevent race conditions
+    const loginForm = document.getElementById('auth-login-form');
+    const step1Form = document.getElementById('reg-step-1');
+    const step2Form = document.getElementById('reg-step-2');
+    const step3Form = document.getElementById('reg-step-3');
+    
+    if (loginForm) loginForm.addEventListener('submit', handleLogin);
+    if (step1Form) step1Form.addEventListener('submit', handleRegStep1);
+    if (step2Form) step2Form.addEventListener('submit', handleRegStep2);
+    if (step3Form) step3Form.addEventListener('submit', handleRegStep3);
+    
     // Check Supabase session
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
@@ -500,12 +511,6 @@ async function initApp() {
         // Show auth modal, hide main app
         document.getElementById('auth-modal').style.display = 'flex';
         document.getElementById('main-app').style.display = 'none';
-        
-        // Listen for auth forms
-        document.getElementById('auth-login-form').addEventListener('submit', handleLogin);
-        document.getElementById('reg-step-1').addEventListener('submit', handleRegStep1);
-        document.getElementById('reg-step-2').addEventListener('submit', handleRegStep2);
-        document.getElementById('reg-step-3').addEventListener('submit', handleRegStep3);
     }
 }
 
