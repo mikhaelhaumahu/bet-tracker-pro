@@ -1,7 +1,17 @@
 // Supabase Initialization
 const SUPABASE_URL = 'https://qnzlczrdjuxutxhvpawq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4XwZpI77XwBQa_TX8JYs4w_ZlUlh3Rp';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase = null;
+try {
+    if (window.supabase) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } else {
+        console.error("Supabase SDK tidak dimuat (window.supabase undefined). Mungkin diblokir Adblocker/ISP.");
+    }
+} catch (err) {
+    console.error("Gagal inisialisasi Supabase:", err);
+}
+
 let currentUser = null;
 
 // ==========================================================================
