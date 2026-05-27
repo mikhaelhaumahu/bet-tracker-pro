@@ -515,20 +515,10 @@ async function initApp() {
     setupEventListeners();
     initTheme();
     
-    // Attach auth listeners immediately to prevent race conditions
-    const loginForm = document.getElementById('auth-login-form');
-    const registerForm = document.getElementById('auth-register-form');
-    
-    if (loginForm) loginForm.addEventListener('submit', handleLogin);
-    if (registerForm) registerForm.addEventListener('submit', handleRegister);
-    
-    // SISTEM LOGIN DIHAPUS (Bypass langsung ke aplikasi utama)
+    // Login dihapus — langsung set user lokal
     currentUser = { id: 'local-offline-user' };
     
-    document.getElementById('auth-modal').style.display = 'none';
-    document.getElementById('main-app').style.display = 'flex';
-    
-    // Load local data instead of Supabase
+    // Load local data
     const savedBets = localStorage.getItem('bettracker_my_bets');
     if (savedBets) {
         try { myBets = JSON.parse(savedBets); } catch(e) {}
@@ -543,16 +533,6 @@ async function initApp() {
     
     renderTrackedBets(currentFilter);
     updateDashboardStats();
-}
-
-// Dummy functions untuk mencegah error dari tombol login lama yang mungkin masih ada
-window.handleLogin = async function(e) { e.preventDefault(); }
-window.handleRegister = async function(e) { e.preventDefault(); }
-
-
-window.handleLogout = async function() {
-    await supabaseClient.auth.signOut();
-    location.reload();
 }
 
 async function loadDataFromSupabase() {
