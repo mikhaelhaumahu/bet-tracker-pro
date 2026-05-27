@@ -10,22 +10,37 @@ export default async function handler(req, res) {
     const token = req.headers['x-auth-token'];
     
     if (!token) {
-        return res.status(400).json({ error: 'X-Auth-Token header is required' });
+        return res.status(400).json({ error: 'Token API diperlukan (X-Auth-Token atau x-apisports-key)' });
     }
 
-    const { dateFrom, dateTo } = req.query;
+    const { dateFrom, dateTo, provider } = req.query;
     
-    let apiUrl = 'https://api.football-data.org/v4/matches';
-    if (dateFrom && dateTo) {
-        apiUrl += `?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+    let apiUrl = '';
+    let apiHeaders = {};
+
+    if (provider === 'apisports') {
+        // API-Sports Configuration
+        // Endpoint: https://v3.football.api-sports.io/fixtures?date=YYYY-MM-DD
+        const targetDate = dateFrom || new Date().toISOString().split('T')[0];
+        apiUrl = `https://v3.football.api-sports.io/fixtures?date=${targetDate}`;
+        apiHeaders = {
+            'x-apisports-key': token
+        };
+    } else {
+        // Default to football-data.org
+        apiUrl = 'https://api.football-data.org/v4/matches';
+        if (dateFrom && dateTo) {
+            apiUrl += `?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+        }
+        apiHeaders = {
+            'X-Auth-Token': token
+        };
     }
 
     try {
         const response = await fetch(apiUrl, {
             method: 'GET',
-            headers: {
-                'X-Auth-Token': token
-            }
+            headers: apiHeaders
         });
         
         const data = await response.json();

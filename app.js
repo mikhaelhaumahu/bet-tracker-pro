@@ -466,11 +466,13 @@ const tomorrowStr = `${yyyyTom}-${mmTom}-${ddTom}`;
 
 let selectedDateFilter = todayStr; // default to Today
 
-// API Config states
+// API Config
 let apiMode = "demo";
+let apiProvider = "footballdata";
 let apiToken = "";
+let aiToken = "";
 let fetchedApiMatches = [];
-let hideFinishedMatches = true;
+let hideFinishedMatches = false;
 const API_CACHE_KEY = "bettracker_api_matches_cache_v2.1.0";
 
 window.toggleHideFinishedMatches = function(checked) {
@@ -510,7 +512,20 @@ function loadBets() {
 
     // Load API Settings
     apiMode = localStorage.getItem("bettracker_api_mode") || "demo";
+    apiProvider = localStorage.getItem("bettracker_api_provider") || "footballdata";
     apiToken = localStorage.getItem("bettracker_api_token") || "";
+    aiToken = localStorage.getItem("bettracker_ai_token") || "";
+
+    // Set initial toggle state if elements exist
+    const apiModeSelect = document.getElementById("api-mode");
+    const apiProviderSelect = document.getElementById("api-provider");
+    const apiTokenInput = document.getElementById("api-token");
+    const aiTokenInput = document.getElementById("ai-token");
+    
+    if (apiModeSelect) apiModeSelect.value = apiMode;
+    if (apiProviderSelect) apiProviderSelect.value = apiProvider;
+    if (apiTokenInput) apiTokenInput.value = apiToken;
+    if (aiTokenInput) aiTokenInput.value = aiToken;
 }
 
 // Save bets to LocalStorage
@@ -708,19 +723,37 @@ function loadMatchData(forceRefresh = false) {
                 try {
                     if (i > 0) await sleep(150); // 150ms delay between requests
                     
-                    const response = await fetch(`/api/matches?dateFrom=${range.from}&dateTo=${range.to}`, {
+                    // Build API URL
+                    let url = `/api/matches?provider=${apiProvider}&dateFrom=${range.from}&dateTo=${range.to}`;
+                    
+                    // Options for Vercel Serverless Proxy
+                    let options = {
                         method: "GET",
-                        headers: { "X-Auth-Token": apiToken }
-                    });
+                        headers: {
+                            "X-Auth-Token": apiToken
+                        }
+                    };
+
+                    const response = await fetch(url, options);
                     
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status} pada blok ${i+1}`);
                     }
                     
                     const data = await response.json();
-                    if (data && data.matches) {
-                        allMatches = allMatches.concat(data.matches);
-                        successCount++;
+                    
+                    if (apiProvider === 'apisports') {
+                        if (data && data.response) {
+                            allMatches = allMatches.concat(data.response);
+                            successCount++;
+                        } else if (data.errors && Object.keys(data.errors).length > 0) {
+                            throw new Error("API-Sports: " + JSON.stringify(data.errors));
+                        }
+                    } else {
+                        if (data && data.matches) {
+                            allMatches = allMatches.concat(data.matches);
+                            successCount++;
+                        }
                     }
                 } catch (err) {
                     console.warn(`Gagal memuat rentang API ${range.from} s.d ${range.to}:`, err);
@@ -1532,6 +1565,32 @@ function generateAllBetMarkets(home, away) {
 }
 
 function translateApiMatches(apiMatches) {
+    if (apiProvider === 'apisports') {
+        return apiMatches.map((m) => {
+            const date = new Date(m.fixture.date);
+            const timeText = String(date.getHours()).padStart(2, '0') + ":" + String(date.getMinutes()).padStart(2, '0');
+            const statusStr = m.fixture.status.short;
+            const isFinished = ["FT", "AET", "PEN"].includes(statusStr);
+            const isLive = ["1H", "HT", "2H", "ET", "P", "LIVE"].includes(statusStr);
+            
+            return {
+                id: `api_s_${m.fixture.id}`,
+                league: m.league.name,
+                homeTeam: m.teams.home.name,
+                awayTeam: m.teams.away.name,
+                time: timeText,
+                status: isFinished ? "FINISHED" : isLive ? "LIVE" : "SCHEDULED",
+                isFinished: isFinished,
+                isLive: isLive,
+                isToday: date.toDateString() === new Date().toDateString(),
+                homeScore: m.goals.home,
+                awayScore: m.goals.away,
+                utcDate: m.fixture.date
+            };
+        });
+    }
+
+    // Default: football-data.org
     return apiMatches.map((m, index) => {
         const home = m.homeTeam.shortName || m.homeTeam.name;
         const away = m.awayTeam.shortName || m.awayTeam.name;
@@ -2290,27 +2349,34 @@ function setupEventListeners() {
         });
     }
 
+    // 10. API Settings Form Submit
     if (apiSettingsForm) {
         apiSettingsForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const mode = apiModeSelect.value;
-            const token = apiTokenInput.value.trim();
+            const selectedMode = document.getElementById("api-mode").value;
+            const selectedProvider = document.getElementById("api-provider").value;
+            const token = document.getElementById("api-token").value.trim();
+            const aTkn = document.getElementById("ai-token").value.trim();
 
-            if (mode === "live" && !token) {
-                showToast("Mohon isi X-Auth-Token Anda!", "error");
+            if (selectedMode === "live" && !token) {
+                showToast("Token API diperlukan untuk mode Live!", "error");
                 return;
             }
 
-            apiMode = mode;
+            apiMode = selectedMode;
+            apiProvider = selectedProvider;
             apiToken = token;
+            aiToken = aTkn;
 
-            localStorage.setItem("bettracker_api_mode", mode);
-            localStorage.setItem("bettracker_api_token", token);
-
-            // Clear matches cache so it fetches fresh data with new token/mode
+            localStorage.setItem("bettracker_api_mode", apiMode);
+            localStorage.setItem("bettracker_api_provider", apiProvider);
+            localStorage.setItem("bettracker_api_token", apiToken);
+            localStorage.setItem("bettracker_ai_token", aiToken);
+            
+            document.getElementById("api-settings-modal").classList.remove("open");
+            showToast("Pengaturan API disimpan. Memuat ulang data...", "success");
+            
             sessionStorage.removeItem(API_CACHE_KEY);
-
-            closeApiModal();
             loadMatchData();
             showToast(`Pengaturan API disimpan! Beralih ke mode ${mode === 'live' ? 'LIVE API' : 'DEMO'}.`, "success");
         });
@@ -3211,4 +3277,50 @@ function importDataFromJSON() {
         }
     };
     reader.readAsText(file);
+}
+
+// AI Analysis Logic
+window.analyzeMatchWithAI = async function() {
+    if (!selectedMatch) return;
+    
+    if (!aiToken) {
+        showToast("Mohon masukkan Gemini API Key di Pengaturan API terlebih dahulu!", "error");
+        document.getElementById('api-settings-modal').classList.add('open');
+        return;
+    }
+
+    const btn = document.getElementById("btn-ai-analysis");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin" style="width: 18px; height: 18px; margin-right: 0.5rem; display: inline-block; vertical-align: middle; animation: spin 1s linear infinite;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg> Sedang Menganalisis...`;
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/ai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-AI-Token': aiToken
+            },
+            body: JSON.stringify({
+                match: selectedMatch
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `HTTP Error ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Tampilkan hasil di modal konfirmasi atau SweetAlert
+        alert("Prediksi AI:\n\n" + data.analysis);
+
+    } catch (error) {
+        console.error("AI Error:", error);
+        showToast("Gagal menganalisis: " + error.message, "error");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }

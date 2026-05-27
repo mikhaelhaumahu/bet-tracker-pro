@@ -37,7 +37,7 @@
                         <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
                 </button>
-                <button id="api-settings-btn" class="icon-btn" onclick="document.getElementById('api-settings-modal').classList.add('open'); if(document.getElementById('api-mode') && document.getElementById('api-token-container')) { document.getElementById('api-token-container').style.display = document.getElementById('api-mode').value === 'live' ? 'block' : 'none'; }" aria-label="Pengaturan API">
+                <button id="api-settings-btn" class="icon-btn" onclick="document.getElementById('api-settings-modal').classList.add('open'); if(document.getElementById('api-mode')) { const isLive = document.getElementById('api-mode').value === 'live'; document.getElementById('api-provider-container').style.display = isLive ? 'block' : 'none'; document.getElementById('api-token-container').style.display = isLive ? 'block' : 'none'; }" aria-label="Pengaturan API">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -244,6 +244,10 @@
                         <span class="team" id="drawer-match-away">-</span>
                     </div>
                     <div class="drawer-time" id="drawer-match-time">-</div>
+                    <button class="btn btn-primary" id="btn-ai-analysis" onclick="analyzeMatchWithAI()" style="width: 100%; margin-top: 1rem; background: linear-gradient(135deg, #a855f7 0%, var(--primary) 100%);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; margin-right: 0.5rem; display: inline-block; vertical-align: middle;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Minta Analisis Prediksi AI
+                    </button>
                 </div>
                 <div class="drawer-body">
                     <div class="drawer-tabs">
@@ -448,28 +452,50 @@
                         <!-- Mode Selector -->
                         <div class="form-group">
                             <label for="api-mode">Mode Sumber Data Pertandingan</label>
-                            <select id="api-mode" onchange="document.getElementById('api-token-container').style.display = this.value === 'live' ? 'block' : 'none';" style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.65rem 0.75rem; border-radius: var(--radius-md); font-size: 0.9rem; color: #f3f4f6; width: 100%; cursor: pointer;">
+                            <select id="api-mode" onchange="const isLive = this.value === 'live'; document.getElementById('api-token-container').style.display = isLive ? 'block' : 'none'; document.getElementById('api-provider-container').style.display = isLive ? 'block' : 'none';" style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.65rem 0.75rem; border-radius: var(--radius-md); font-size: 0.9rem; color: #f3f4f6; width: 100%; cursor: pointer;">
                                 <option value="demo" style="background: #111827; color: #f3f4f6;">Mode Demo / Mock Data (Asli Terjadwal)</option>
-                                <option value="live" style="background: #111827; color: #f3f4f6;">Mode API Live (Football-Data.org)</option>
+                                <option value="live" style="background: #111827; color: #f3f4f6;">Mode API Live</option>
                             </select>
-                            <span class="form-help">Pilih apakah ingin memuat data lokal terjadwal atau mengambil data live sepak bola dunia nyata langsung dari API.</span>
+                            <span class="form-help">Pilih apakah ingin memuat data lokal atau mengambil data sepak bola dunia nyata langsung dari API.</span>
+                        </div>
+                        
+                        <!-- Provider Selector -->
+                        <div id="api-provider-container" class="form-group" style="display: none;">
+                            <label for="api-provider">Penyedia API Olahraga</label>
+                            <select id="api-provider" style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.65rem 0.75rem; border-radius: var(--radius-md); font-size: 0.9rem; color: #f3f4f6; width: 100%; cursor: pointer;">
+                                <option value="footballdata" style="background: #111827; color: #f3f4f6;">Football-Data.org (Rekomendasi)</option>
+                                <option value="apisports" style="background: #111827; color: #f3f4f6;">API-Sports (v3)</option>
+                            </select>
                         </div>
 
                         <!-- API Token Input -->
                         <div id="api-token-container" class="form-group" style="display: none;">
-                            <label for="api-token">Token API (Football-Data.org)</label>
+                            <label for="api-token">API Key Olahraga</label>
                             <div class="input-wrapper">
-                                <input type="text" id="api-token" placeholder="Masukkan X-Auth-Token Anda..." style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.95rem; color: #f3f4f6; width: 100%;">
+                                <input type="text" id="api-token" placeholder="Masukkan API Key Anda..." style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.95rem; color: #f3f4f6; width: 100%;">
                             </div>
                             <span class="form-help">
-                                Anda perlu mendaftar secara GRATIS untuk mendapatkan token API di 
-                                <a href="https://www.football-data.org/client/register" target="_blank" style="color: var(--primary); font-weight: 600; text-decoration: underline;">football-data.org/client/register</a>. Token akan dikirimkan langsung ke email Anda dalam waktu 1 menit.
+                                Anda perlu mendaftar secara GRATIS untuk mendapatkan token API dari penyedia yang dipilih di atas.
+                            </span>
+                        </div>
+                        
+                        <!-- AI Token Input -->
+                        <div class="form-group" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <label for="ai-token" style="color: #a855f7; display: flex; align-items: center; gap: 0.5rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                                Google Gemini AI API Key (Opsional)
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="password" id="ai-token" placeholder="Masukkan Gemini API Key..." style="background: #1f2937; border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.95rem; color: #f3f4f6; width: 100%;">
+                            </div>
+                            <span class="form-help">
+                                Digunakan untuk mengaktifkan fitur <strong>Analisis Prediksi AI</strong>. Dapatkan API Key secara gratis di <a href="https://aistudio.google.com/" target="_blank" style="color: #a855f7; font-weight: 600; text-decoration: underline;">Google AI Studio</a>.
                             </span>
                         </div>
 
                         <div class="modal-actions" style="margin-top: 1rem;">
                             <button type="button" id="cancel-api-settings-btn" class="btn btn-secondary" onclick="document.getElementById('api-settings-modal').classList.remove('open');">Batal</button>
-                            <button type="submit" id="save-api-settings-btn" class="btn btn-primary">Simpan Pengaturan</button>
+                            <button type="submit" id="save-api-settings-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);">Simpan Pengaturan</button>
                         </div>
                     </form>
                 </div>
