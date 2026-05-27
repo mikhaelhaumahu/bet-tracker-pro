@@ -513,7 +513,7 @@ let dateBtnToday, dateBtnTomorrow, customDateInput;
 
 async function initApp() {
     setupEventListeners();
-    setupTheme();
+    initTheme();
     
     // Attach auth listeners immediately to prevent race conditions
     const loginForm = document.getElementById('auth-login-form');
@@ -634,17 +634,12 @@ document.addEventListener("DOMContentLoaded", () => {
         customDateInput = document.getElementById("custom-date-input");
 
         console.log("DOM selesai dimuat. Memuat data...");
-        initTheme();
         
-        // Load match data (API Live or Local Offline)
+        // Panggil initApp pertama kali untuk menyembunyikan modal login dan me-load data lokal!
+        await initApp();
+        
+        // Load match data (API Live or Local Offline) setelah local data di-load
         loadMatchData();
-        
-        renderTrackedBets("all");
-        updateDashboardStats();
-        setupEventListeners();
-        
-        // Inisialisasi Auth & Session
-        initApp();
         
         console.log("Inisialisasi BetTracker Pro berhasil!");
     } catch (error) {
