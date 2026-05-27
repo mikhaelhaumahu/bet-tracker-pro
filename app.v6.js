@@ -1,3 +1,9 @@
+// Supabase Initialization
+const SUPABASE_URL = 'https://qnzlczrdjuxutxhvpawq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4XwZpI77XwBQa_TX8JYs4w_ZlUlh3Rp';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+
 // ==========================================================================
 // MOCK MATCH TEMPLATES ( Dynamic Date Offset Generator )
 // ==========================================================================
