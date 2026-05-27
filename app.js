@@ -466,6 +466,13 @@ let selectedTip = null;
 let modalActiveMatch = null;
 let currentFilter = "all";
 
+// API State
+let apiMode = "demo";
+let apiProvider = "football-data";
+let apiToken = "";
+let aiToken = "";
+let fetchedApiMatches = [];
+
 // Date Filter State
 const todayObj = new Date();
 const yyyyToday = todayObj.getFullYear();
@@ -537,7 +544,7 @@ window.handleLogin = async function(e) {
 
     if (!username || !password) return;
 
-    const email = username.toLowerCase() + '@app.local';
+    const email = username.toLowerCase() + '@bettracker.app';
     const btn = document.getElementById('btn-login');
     btn.textContent = 'Memuat...';
     btn.disabled = true;
@@ -587,7 +594,7 @@ window.handleRegister = async function(e) {
         return;
     }
 
-    const email = username.toLowerCase() + '@app.local';
+    const email = username.toLowerCase() + '@bettracker.app';
     const btn = document.getElementById('btn-register');
     btn.textContent = 'Membuat Akun...';
     btn.disabled = true;
