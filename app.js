@@ -545,7 +545,7 @@ window.switchAuthTab = function(tab) {
     }
 }
 
-async function handleLogin(e) {
+window.handleLogin = async function(e) {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
@@ -573,7 +573,7 @@ async function handleLogin(e) {
     }
 }
 
-async function handleRegStep1(e) {
+window.handleRegStep1 = async function(e) {
     e.preventDefault();
     const email = document.getElementById('reg-email').value.trim();
     const errDiv = document.getElementById('reg-err-1');
@@ -606,7 +606,7 @@ async function handleRegStep1(e) {
     }
 }
 
-async function handleRegStep2(e) {
+window.handleRegStep2 = async function(e) {
     e.preventDefault();
     const token = document.getElementById('reg-otp').value.trim();
     const errDiv = document.getElementById('reg-err-2');
@@ -642,7 +642,7 @@ async function handleRegStep2(e) {
     }
 }
 
-async function handleRegStep3(e) {
+window.handleRegStep3 = async function(e) {
     e.preventDefault();
     const password = document.getElementById('reg-password').value;
     const errDiv = document.getElementById('reg-err-3');
