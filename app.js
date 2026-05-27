@@ -522,134 +522,33 @@ async function initApp() {
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
     if (registerForm) registerForm.addEventListener('submit', handleRegister);
     
-    // Check Supabase session
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) {
-        currentUser = session.user;
-        await onLoginSuccess();
-    } else {
-        // Show auth modal, hide main app
-        document.getElementById('auth-modal').style.display = 'flex';
-        document.getElementById('main-app').style.display = 'none';
-    }
-}
-
-// Auth tab switching logic is now embedded directly in index.html to prevent load failures
-
-window.handleLogin = async function(e) {
-    e.preventDefault();
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value;
-    const errDiv = document.getElementById('login-error');
-    errDiv.style.display = 'none';
-
-    if (!username || !password) return;
-
-    const email = username.toLowerCase() + '@bettracker.app';
-    const btn = document.getElementById('btn-login');
-    btn.textContent = 'Memuat...';
-    btn.disabled = true;
-
-    try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        
-        if (error) {
-            errDiv.textContent = "Username atau sandi salah.";
-            errDiv.style.display = 'block';
-            btn.textContent = 'Masuk ke Akun';
-            btn.disabled = false;
-        } else {
-            currentUser = data.user;
-            await onLoginSuccess();
-            btn.textContent = 'Masuk ke Akun';
-            btn.disabled = false;
-        }
-    } catch (err) {
-        console.error("Supabase Auth Error:", err);
-        alert("ERROR: " + err.message + "\n\nPastikan koneksi internet stabil dan matikan ekstensi Adblock/VPN Anda.");
-        errDiv.innerHTML = "Kesalahan Sistem: " + err.message + "<br>Pastikan Anda terhubung ke internet dan matikan VPN / Adblocker jika ada.";
-        errDiv.style.display = 'block';
-        btn.textContent = 'Masuk ke Akun';
-        btn.disabled = false;
-    }
-}
-
-window.handleRegister = async function(e) {
-    e.preventDefault();
-    const username = document.getElementById('reg-username').value.trim();
-    const password = document.getElementById('reg-password').value;
-    const errDiv = document.getElementById('reg-error');
+    // SISTEM LOGIN DIHAPUS (Bypass langsung ke aplikasi utama)
+    currentUser = { id: 'local-offline-user' };
     
-    errDiv.style.display = 'none';
+    document.getElementById('auth-modal').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
     
-    // Validasi username
-    if (!/^[a-zA-Z0-9_]{3,}$/.test(username)) {
-        errDiv.textContent = 'Username minimal 3 karakter (hanya huruf, angka, underscore).';
-        errDiv.style.display = 'block';
-        return;
+    // Load local data instead of Supabase
+    const savedBets = localStorage.getItem('bettracker_my_bets');
+    if (savedBets) {
+        try { myBets = JSON.parse(savedBets); } catch(e) {}
+    }
+    const savedChat = localStorage.getItem('bettracker_chat_history');
+    if (savedChat) {
+        try { aiChatHistory = JSON.parse(savedChat); } catch(e) {}
     }
     
-    if (password.length < 6) {
-        errDiv.textContent = 'Password minimal 6 karakter.';
-        errDiv.style.display = 'block';
-        return;
-    }
-
-    const email = username.toLowerCase() + '@bettracker.app';
-    const btn = document.getElementById('btn-register');
-    btn.textContent = 'Membuat Akun...';
-    btn.disabled = true;
-
-    try {
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        
-        if (error) {
-            if (error.message.toLowerCase().includes('rate limit')) {
-                errDiv.innerHTML = '<strong>Akses Sementara Diblokir (Spam Filter)</strong><br>Karena terlalu banyak percobaan sebelumnya, sistem keamanan memblokir jaringan Anda sementara.<br><br><strong>Solusi:</strong><br>1. Matikan WiFi Anda dan gunakan Kuota HP (atau sebaliknya).<br>2. Atau tunggu 15 menit.<br>3. Lalu coba pencet tombol ini lagi.';
-            } else {
-                errDiv.textContent = error.message;
-            }
-            errDiv.style.display = 'block';
-            btn.textContent = 'Buat Akun Sekarang';
-            btn.disabled = false;
-        } else {
-            // Check if "Confirm Email" is required in Supabase settings
-            if (data.user && !data.session) {
-                errDiv.innerHTML = '<strong>❌ ERROR SUPABASE:</strong><br>Pembuatan akun gagal karena fitur <strong>"Confirm email"</strong> di Supabase Anda MASIH MENYALA!<br><br><strong>CARA MEMPERBAIKI:</strong><br>1. Buka Supabase Dashboard Anda<br>2. Pilih menu "Authentication"<br>3. Pilih "Providers" -> "Email"<br>4. Matikan sakelar "Confirm email" dan SAVE.<br>5. Refresh aplikasi ini dan coba daftar lagi!';
-                errDiv.style.display = 'block';
-                btn.textContent = 'Buat Akun Sekarang';
-                btn.disabled = false;
-                return;
-            }
-
-            // Successfully logged in automatically
-            if (data.user) {
-                // Create user profile immediately
-                await supabaseClient.from('user_profiles').insert([{ id: data.user.id }]);
-                currentUser = data.user;
-                
-                // Tampilkan pesan sukses
-                btn.textContent = 'Sukses! Mengalihkan...';
-                btn.style.backgroundColor = '#10b981'; // Warna hijau sukses
-                btn.style.color = '#ffffff';
-                errDiv.style.display = 'none';
-                
-                setTimeout(async () => {
-                    await onLoginSuccess();
-                }, 1500);
-            }
-            btn.textContent = 'Buat Akun Sekarang';
-            btn.disabled = false;
-        }
-    } catch (err) {
-        console.error("Supabase Auth Error:", err);
-        alert("ERROR: " + err.message + "\n\nPastikan koneksi internet stabil dan matikan ekstensi Adblock/VPN Anda.");
-        errDiv.innerHTML = "Kesalahan Sistem: " + err.message + "<br>Pastikan Anda terhubung ke internet dan matikan VPN / Adblocker jika ada.";
-        errDiv.style.display = 'block';
-        btn.textContent = 'Buat Akun Sekarang';
-        btn.disabled = false;
-    }
+    apiMode = localStorage.getItem("bettracker_api_mode") || "live";
+    hideFinishedMatches = localStorage.getItem("bettracker_hide_finished") === "true";
+    
+    renderTrackedBets(currentFilter);
+    updateDashboardStats();
 }
+
+// Dummy functions untuk mencegah error dari tombol login lama yang mungkin masih ada
+window.handleLogin = async function(e) { e.preventDefault(); }
+window.handleRegister = async function(e) { e.preventDefault(); }
+
 
 window.handleLogout = async function() {
     await supabaseClient.auth.signOut();
@@ -657,50 +556,18 @@ window.handleLogout = async function() {
 }
 
 async function loadDataFromSupabase() {
-    if (!currentUser) return;
-    try {
-        const { data, error } = await supabaseClient
-            .from('user_profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
-            
-        if (error && error.code !== 'PGRST116') {
-            console.error("Load Supabase Error:", error);
-            return;
-        }
-
-        if (data) {
-            apiProvider = data.api_provider || 'footballdata';
-            apiToken = data.api_token || '';
-            aiToken = data.ai_token || '';
-            myBets = data.my_bets || [];
-            aiChatHistory = data.ai_chat_history || [];
-            
-            // local fallbacks
-            apiMode = localStorage.getItem("bettracker_api_mode") || "live";
-            hideFinishedMatches = localStorage.getItem("bettracker_hide_finished") === "true";
-        } else {
-            // First time login, insert default row
-            await supabaseClient.from('user_profiles').insert([{ id: currentUser.id }]);
-        }
-    } catch (e) {
-        console.error("Load error:", e);
-    }
+    // Fungsi ini dinonaktifkan karena sistem login dihapus
 }
 
 async function saveToSupabase(fieldsToUpdate) {
-    if (!currentUser) return;
-    try {
-        const { error } = await supabaseClient
-            .from('user_profiles')
-            .update(fieldsToUpdate)
-            .eq('id', currentUser.id);
-            
-        if (error) console.error("Save Supabase Error:", error);
-    } catch (e) {
-        console.error("Save error:", e);
+    // Karena sistem login dihapus, kita simpan data secara LOKAL di perangkat pengguna
+    if (fieldsToUpdate.my_bets) {
+        localStorage.setItem('bettracker_my_bets', JSON.stringify(fieldsToUpdate.my_bets));
     }
+    if (fieldsToUpdate.ai_chat_history) {
+        localStorage.setItem('bettracker_chat_history', JSON.stringify(fieldsToUpdate.ai_chat_history));
+    }
+    // Catatan: Token API sudah disimpan ke localStorage di bagian lain kode
 }
 
 // Save bets to LocalStorage
