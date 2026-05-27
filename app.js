@@ -502,48 +502,39 @@ async function initApp() {
         document.getElementById('main-app').style.display = 'none';
         
         // Listen for auth form
-        document.getElementById('auth-form').addEventListener('submit', handleLogin);
+        document.getElementById('auth-login-form').addEventListener('submit', handleLogin);
+        document.getElementById('auth-register-form').addEventListener('submit', handleRegister);
     }
 }
 
-async function onLoginSuccess() {
-    document.getElementById('auth-modal').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
-    document.getElementById('logout-btn').style.display = 'block';
-    
-    // Load data from Supabase
-    await loadDataFromSupabase();
-    
-    // Apply theme
-    applyTheme();
-    
-    // Render
-    renderDiary();
-    updateLiveStats();
-    
-    // Set initial toggle state if elements exist
-    const apiModeSelect = document.getElementById("api-mode");
-    const apiProviderSelect = document.getElementById("api-provider");
-    const apiTokenInput = document.getElementById("api-token");
-    const aiTokenInput = document.getElementById("ai-token");
-    
-    if (apiModeSelect) apiModeSelect.value = apiMode;
-    if (apiProviderSelect) apiProviderSelect.value = apiProvider;
-    if (apiTokenInput) apiTokenInput.value = apiToken;
-    if (aiTokenInput) aiTokenInput.value = aiToken;
+window.switchAuthTab = function(tab) {
+    const loginForm = document.getElementById('auth-login-form');
+    const regForm = document.getElementById('auth-register-form');
+    const tabLogin = document.getElementById('tab-login');
+    const tabReg = document.getElementById('tab-register');
 
-    if (apiMode === "demo") {
-        fetchDemoMatches();
-    } else if (apiToken) {
-        fetchLiveMatches();
+    if (tab === 'login') {
+        loginForm.style.display = 'flex';
+        regForm.style.display = 'none';
+        tabLogin.style.color = 'var(--primary)';
+        tabLogin.style.borderBottomColor = 'var(--primary)';
+        tabReg.style.color = 'var(--text-muted)';
+        tabReg.style.borderBottomColor = 'transparent';
+    } else {
+        loginForm.style.display = 'none';
+        regForm.style.display = 'flex';
+        tabReg.style.color = 'var(--primary)';
+        tabReg.style.borderBottomColor = 'var(--primary)';
+        tabLogin.style.color = 'var(--text-muted)';
+        tabLogin.style.borderBottomColor = 'transparent';
     }
 }
 
 async function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errDiv = document.getElementById('auth-error');
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const errDiv = document.getElementById('login-error');
     errDiv.style.display = 'none';
     
     const btn = document.getElementById('btn-login');
@@ -553,9 +544,13 @@ async function handleLogin(e) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     
     if (error) {
-        errDiv.textContent = error.message;
+        if (error.message.includes('Email not confirmed')) {
+            errDiv.textContent = 'Email Anda belum diverifikasi! Silakan cek Inbox / Folder Spam email Anda untuk mengklik tautan verifikasi.';
+        } else {
+            errDiv.textContent = error.message;
+        }
         errDiv.style.display = 'block';
-        btn.textContent = 'Masuk';
+        btn.textContent = 'Masuk ke Akun';
         btn.disabled = false;
     } else {
         currentUser = data.user;
@@ -563,11 +558,15 @@ async function handleLogin(e) {
     }
 }
 
-window.handleRegister = async function() {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errDiv = document.getElementById('auth-error');
+window.handleRegister = async function(e) {
+    e.preventDefault();
+    const email = document.getElementById('reg-email').value;
+    const password = document.getElementById('reg-password').value;
+    const errDiv = document.getElementById('reg-error');
+    const succDiv = document.getElementById('reg-success');
+    
     errDiv.style.display = 'none';
+    succDiv.style.display = 'none';
     
     if (!email || password.length < 6) {
         errDiv.textContent = 'Masukkan email valid dan password min 6 karakter.';
@@ -584,15 +583,27 @@ window.handleRegister = async function() {
     if (error) {
         errDiv.textContent = error.message;
         errDiv.style.display = 'block';
-        btn.textContent = 'Daftar Akun Baru';
+        btn.textContent = 'Buat Akun Sekarang';
         btn.disabled = false;
     } else {
-        // Automatically create profile
+        // Automatically create profile if session exists
         if (data.user) {
             await supabase.from('user_profiles').insert([{ id: data.user.id }]);
         }
-        alert('Registrasi berhasil! Silakan login sekarang.');
-        btn.textContent = 'Daftar Akun Baru';
+        
+        // Supabase sends a confirmation email by default if not disabled
+        if (data.user && !data.session) {
+            succDiv.innerHTML = '<strong>Pendaftaran Berhasil!</strong><br>Silakan cek Inbox atau folder Spam di email Anda untuk mengklik tautan verifikasi. Setelah itu, Anda bisa login.';
+            succDiv.style.display = 'block';
+            document.getElementById('reg-email').value = '';
+            document.getElementById('reg-password').value = '';
+        } else {
+            // Auto login if confirm email is disabled in Supabase
+            currentUser = data.user;
+            await onLoginSuccess();
+        }
+        
+        btn.textContent = 'Buat Akun Sekarang';
         btn.disabled = false;
     }
 }
