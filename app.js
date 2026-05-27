@@ -466,17 +466,6 @@ const tomorrowStr = `${yyyyTom}-${mmTom}-${ddTom}`;
 
 let selectedDateFilter = todayStr; // default to Today
 
-// API Config
-let apiMode = "demo";
-let apiProvider = "footballdata";
-let apiToken = "";
-let aiToken = "";
-let userId = "user_default";
-let aiChatHistory = [];
-let fetchedApiMatches = [];
-let hideFinishedMatches = false;
-const API_CACHE_KEY = "bettracker_api_matches_cache_v2.1.0";
-
 window.toggleHideFinishedMatches = function(checked) {
     hideFinishedMatches = checked;
     const matchesSource = apiMode === "live" ? fetchedApiMatches : MATCHES_DATA;
@@ -498,63 +487,171 @@ let refreshApiBtn, apiStatusInfo;
 // Date Selector DOM Variables
 let dateBtnToday, dateBtnTomorrow, customDateInput;
 
-// Load bets & configuration from LocalStorage
-function loadBets() {
-    const savedBets = localStorage.getItem("bettracker_bets");
-    if (savedBets) {
-        try {
-            myBets = JSON.parse(savedBets);
-        } catch (e) {
-            console.error("Gagal membaca LocalStorage:", e);
-            myBets = [];
-        }
+async function initApp() {
+    setupEventListeners();
+    setupTheme();
+    
+    // Check Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        currentUser = session.user;
+        await onLoginSuccess();
     } else {
-        myBets = [];
+        // Show auth modal, hide main app
+        document.getElementById('auth-modal').style.display = 'flex';
+        document.getElementById('main-app').style.display = 'none';
+        
+        // Listen for auth form
+        document.getElementById('auth-form').addEventListener('submit', handleLogin);
     }
+}
 
-    // Load API Settings
-    apiMode = localStorage.getItem("bettracker_api_mode") || "demo";
-    apiProvider = localStorage.getItem("bettracker_api_provider") || "footballdata";
-    apiToken = localStorage.getItem("bettracker_api_token") || "";
-    aiToken = localStorage.getItem("bettracker_ai_token") || "";
-    userId = localStorage.getItem("bettracker_user_id") || "user_default";
-
+async function onLoginSuccess() {
+    document.getElementById('auth-modal').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'block';
+    
+    // Load data from Supabase
+    await loadDataFromSupabase();
+    
+    // Apply theme
+    applyTheme();
+    
+    // Render
+    renderDiary();
+    updateLiveStats();
+    
     // Set initial toggle state if elements exist
     const apiModeSelect = document.getElementById("api-mode");
     const apiProviderSelect = document.getElementById("api-provider");
     const apiTokenInput = document.getElementById("api-token");
     const aiTokenInput = document.getElementById("ai-token");
-    const userIdInput = document.getElementById("user-id");
     
     if (apiModeSelect) apiModeSelect.value = apiMode;
     if (apiProviderSelect) apiProviderSelect.value = apiProvider;
     if (apiTokenInput) apiTokenInput.value = apiToken;
     if (aiTokenInput) aiTokenInput.value = aiToken;
-    if (userIdInput) userIdInput.value = userId;
 
-    loadAiChatHistory();
-}
-
-function loadAiChatHistory() {
-    try {
-        const saved = localStorage.getItem(`bettracker_ai_chat_${userId}`);
-        if (saved) {
-            aiChatHistory = JSON.parse(saved);
-        } else {
-            aiChatHistory = [];
-        }
-    } catch (e) {
-        aiChatHistory = [];
+    if (apiMode === "demo") {
+        fetchDemoMatches();
+    } else if (apiToken) {
+        fetchLiveMatches();
     }
 }
 
-function saveAiChatHistory() {
-    localStorage.setItem(`bettracker_ai_chat_${userId}`, JSON.stringify(aiChatHistory));
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    const errDiv = document.getElementById('auth-error');
+    errDiv.style.display = 'none';
+    
+    const btn = document.getElementById('btn-login');
+    btn.textContent = 'Memuat...';
+    btn.disabled = true;
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+        errDiv.textContent = error.message;
+        errDiv.style.display = 'block';
+        btn.textContent = 'Masuk';
+        btn.disabled = false;
+    } else {
+        currentUser = data.user;
+        await onLoginSuccess();
+    }
+}
+
+window.handleRegister = async function() {
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    const errDiv = document.getElementById('auth-error');
+    errDiv.style.display = 'none';
+    
+    if (!email || password.length < 6) {
+        errDiv.textContent = 'Masukkan email valid dan password min 6 karakter.';
+        errDiv.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('btn-register');
+    btn.textContent = 'Memuat...';
+    btn.disabled = true;
+
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    
+    if (error) {
+        errDiv.textContent = error.message;
+        errDiv.style.display = 'block';
+        btn.textContent = 'Daftar Akun Baru';
+        btn.disabled = false;
+    } else {
+        // Automatically create profile
+        if (data.user) {
+            await supabase.from('user_profiles').insert([{ id: data.user.id }]);
+        }
+        alert('Registrasi berhasil! Silakan login sekarang.');
+        btn.textContent = 'Daftar Akun Baru';
+        btn.disabled = false;
+    }
+}
+
+window.handleLogout = async function() {
+    await supabase.auth.signOut();
+    location.reload();
+}
+
+async function loadDataFromSupabase() {
+    if (!currentUser) return;
+    try {
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+            
+        if (error && error.code !== 'PGRST116') {
+            console.error("Load Supabase Error:", error);
+            return;
+        }
+
+        if (data) {
+            apiProvider = data.api_provider || 'footballdata';
+            apiToken = data.api_token || '';
+            aiToken = data.ai_token || '';
+            myBets = data.my_bets || [];
+            aiChatHistory = data.ai_chat_history || [];
+            
+            // local fallbacks
+            apiMode = localStorage.getItem("bettracker_api_mode") || "live";
+            hideFinishedMatches = localStorage.getItem("bettracker_hide_finished") === "true";
+        } else {
+            // First time login, insert default row
+            await supabase.from('user_profiles').insert([{ id: currentUser.id }]);
+        }
+    } catch (e) {
+        console.error("Load error:", e);
+    }
+}
+
+async function saveToSupabase(fieldsToUpdate) {
+    if (!currentUser) return;
+    try {
+        const { error } = await supabase
+            .from('user_profiles')
+            .update(fieldsToUpdate)
+            .eq('id', currentUser.id);
+            
+        if (error) console.error("Save Supabase Error:", error);
+    } catch (e) {
+        console.error("Save error:", e);
+    }
 }
 
 // Save bets to LocalStorage
 function saveBets() {
-    localStorage.setItem("bettracker_bets", JSON.stringify(myBets));
+    saveToSupabase({ my_bets: myBets });
     updateDashboardStats();
 }
 
@@ -616,7 +713,6 @@ document.addEventListener("DOMContentLoaded", () => {
         customDateInput = document.getElementById("custom-date-input");
 
         console.log("DOM selesai dimuat. Memuat data...");
-        loadBets();
         initTheme();
         
         // Load match data (API Live or Local Offline)
@@ -2381,7 +2477,6 @@ function setupEventListeners() {
             const selectedProvider = document.getElementById("api-provider").value;
             const token = document.getElementById("api-token").value.trim();
             const aTkn = document.getElementById("ai-token").value.trim();
-            const uId = document.getElementById("user-id").value.trim() || "user_default";
 
             if (selectedMode === "live" && !token) {
                 showToast("Token API diperlukan untuk mode Live!", "error");
@@ -2392,15 +2487,15 @@ function setupEventListeners() {
             apiProvider = selectedProvider;
             apiToken = token;
             aiToken = aTkn;
-            userId = uId;
 
             localStorage.setItem("bettracker_api_mode", apiMode);
-            localStorage.setItem("bettracker_api_provider", apiProvider);
-            localStorage.setItem("bettracker_api_token", apiToken);
-            localStorage.setItem("bettracker_ai_token", aiToken);
-            localStorage.setItem("bettracker_user_id", userId);
             
-            loadAiChatHistory(); // reload chat history for this user
+            // Sync to Supabase
+            saveToSupabase({
+                api_provider: apiProvider,
+                api_token: apiToken,
+                ai_token: aiToken
+            });
             
             document.getElementById("api-settings-modal").classList.remove("open");
             showToast("Pengaturan API disimpan. Memuat ulang data...", "success");
@@ -3376,7 +3471,7 @@ document.getElementById('ai-chat-form')?.addEventListener('submit', async (e) =>
     
     // Add user message
     aiChatHistory.push({ role: 'user', content: text });
-    saveAiChatHistory();
+    saveToSupabase({ ai_chat_history: aiChatHistory });
     renderChatMessages();
     
     await fetchAiResponse();
@@ -3410,7 +3505,7 @@ async function fetchAiResponse() {
         const data = await response.json();
         
         aiChatHistory.push({ role: 'model', content: data.analysis });
-        saveAiChatHistory();
+        saveToSupabase({ ai_chat_history: aiChatHistory });
 
     } catch (error) {
         console.error("AI Error:", error);
@@ -3421,7 +3516,7 @@ async function fetchAiResponse() {
     }
 }
 
-window.analyzeMatchWithAI = async function() {
+window.openAiChat = function() {
     if (!selectedMatch) return;
     
     if (!aiToken) {
@@ -3430,29 +3525,22 @@ window.analyzeMatchWithAI = async function() {
         return;
     }
 
-    // Open Chat Modal
+    // Hanya buka modal chat, jangan auto trigger request
     document.getElementById('detail-drawer').classList.remove('open');
     document.getElementById('ai-chat-modal').classList.add('open');
     
-    // Create Initial System Prompt if we are analyzing a new match
+    // System prompt (hide from UI)
     const systemPromptText = `Bertindaklah sebagai Asisten Taruhan Profesional dan Penasihat Keuangan. 
 Tugasmu adalah menganalisis pertandingan, merekomendasikan taruhan terbaik (termasuk alternatif jika diminta), dan menyarankan nominal taruhan berdasarkan saldo pengguna (gunakan manajemen bankroll yang ketat, misal 1-5% dari saldo). Jawab dengan singkat, padat, berwibawa, dan gunakan bahasa Indonesia.
-
 Konteks Pertandingan Saat Ini:
 ${selectedMatch.homeTeam} VS ${selectedMatch.awayTeam}
 Liga: ${selectedMatch.league}
 Waktu: ${selectedMatch.time}`;
 
-    // Add to history as system instruction (hidden from UI)
-    // To make it feel fresh, we can clear history when analyzing a totally new match?
-    // Or we just append it so AI knows the CURRENT context.
+    // Kita tambahkan konteks system prompt jika belum ada obrolan untuk pertandingan ini
+    // (Bisa juga dibiarkan numpuk jika mau ingat pertandingan lama)
     aiChatHistory.push({ role: 'system', content: systemPromptText });
+    saveToSupabase({ ai_chat_history: aiChatHistory });
     
-    // Auto trigger an AI greeting for this match
-    aiChatHistory.push({ role: 'user', content: `Tolong berikan analisis awal dan prediksi untuk pertandingan ${selectedMatch.homeTeam} vs ${selectedMatch.awayTeam}.` });
-    
-    saveAiChatHistory();
     renderChatMessages();
-    
-    await fetchAiResponse();
 }
